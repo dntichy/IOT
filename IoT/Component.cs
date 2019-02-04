@@ -1,14 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Net.Http;
+using Newtonsoft.Json;
 using Tinkerforge;
+
 
 namespace IoT
 {
     internal class Component
     {
+        static HttpClient client = new HttpClient();
+        int Clickcount = 0;
+
+
         private IPConnection _ipConnection;
         private BrickletDualButton _dualButtonBricklet;
         private BrickletLCD20x4 _lcdBricklet;
@@ -43,10 +46,7 @@ namespace IoT
             _lcdBricklet.BacklightOn();
             if (buttonL == BrickletDualButton.BUTTON_STATE_PRESSED)
             {
-                Console.WriteLine("Left Button: Pressed");
-                _lcdBricklet.ClearDisplay();
-                _lcdBricklet.WriteLine(0, 0,
-                    "Teplota: " + Convert.ToString(ReadTemperature() / 100.0) + UTF16ToKS0066U(" °C"));
+                GetData();
             }
             else if (buttonL == BrickletDualButton.BUTTON_STATE_RELEASED)
             {
@@ -55,10 +55,15 @@ namespace IoT
 
             if (buttonR == BrickletDualButton.BUTTON_STATE_PRESSED)
             {
+                Clickcount = 0;
                 Console.WriteLine("Right Button: Pressed");
+
+                _lcdBricklet.ClearDisplay();
                 _lcdBricklet.ClearDisplay();
                 _lcdBricklet.WriteLine(0, 0,
-                    "Humidity: " + Convert.ToString(ReadHumidity() / 100.0) + UTF16ToKS0066U(" %"));
+                    "Temperature: " + Convert.ToString(ReadTemperature() / 100.0) + UTF16ToKS0066U("°C"));
+                _lcdBricklet.WriteLine(1, 0,
+                    "Humidity: " + Convert.ToString(ReadHumidity() / 100.0) + UTF16ToKS0066U("%"));
             }
             else if (buttonR == BrickletDualButton.BUTTON_STATE_RELEASED)
             {
@@ -68,6 +73,42 @@ namespace IoT
             Console.WriteLine("");
         }
 
+
+        public async void GetData()
+        {
+            Clickcount++;
+
+            if (Clickcount == 1)
+            {
+                HttpResponseMessage response = await client.GetAsync(
+                    "https://newsapi.org/v2/everything?q=bitcoin&from=2019-01-04&sortBy=publishedAt&language=en&apiKey=4870ddca698c4c3cb6d3cbbfa2d183fe");
+                String json = await response.Content.ReadAsStringAsync();
+                RootObject bsObj = JsonConvert.DeserializeObject<RootObject>(json);
+
+                String str1 = bsObj.articles[0].description;
+                String str2 = bsObj.articles[1].description;
+                String str3 = bsObj.articles[2].description;
+
+
+                while (Clickcount == 1)
+                {
+                    _lcdBricklet.ClearDisplay();
+                    _lcdBricklet.WriteLine(0, 0, "News:");
+
+                    _lcdBricklet.WriteLine(1, 1, Shift(UTF16ToKS0066U(str1), out str1));
+                    _lcdBricklet.WriteLine(2, 1, Shift(UTF16ToKS0066U(str2), out str2));
+                    _lcdBricklet.WriteLine(3, 1, Shift(UTF16ToKS0066U(str3), out str3));
+                    System.Threading.Thread.Sleep(300);
+                }
+            }
+        }
+
+        public string Shift(string str, out string st)
+        {
+            st = str.Substring(1) + str[0];
+            return str;
+        }
+            
         public short ReadTemperature()
         {
             return _temperatureBricklet.GetTemperature();
