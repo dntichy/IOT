@@ -14,6 +14,11 @@ namespace IoT
         private BrickletLCD20x4 _lcdBricklet;
         private BrickletTemperature _temperatureBricklet;
         private BrickletHumidity _humidityBricklet;
+        private BrickletLinearPoti _linearPoti;
+        private BrickletRotaryPoti _rotaryPoti;
+        private BrickletRGBLEDButton _rgbButton;
+        private BrickletSegmentDisplay4x7 _segmentDisplay;
+        private BrickletMotionDetectorV2 _motionDetector;
 
         //TODO create configurable file for this.
         private static string HOST = "localhost";
@@ -22,6 +27,28 @@ namespace IoT
         private const string DualButtonUID = "vQJ";
         private const string DisplayUID = "BKh";
         private const string HumidityUID = "Dhd";
+        private const string LinearPotiUID = "zZL";
+        private const string RGBButtonUID = "Dmk";
+        private const string RotaryPotiUID = "y6z";
+        private const string SegmentUID = "wKt";
+        private const string motionDetectorUID = "EkJ";
+
+        //setup variables
+        private byte _red = 150;
+        private byte _green = 150;
+        private byte _blue = 0;
+        private int counter = 0;
+
+        //setup consts
+        private const byte RED = 150;
+        private const byte GREEN = 150;
+        private const byte BLUE = 0;
+
+        private static byte[] DIGITS = {0x3f,0x06,0x5b,0x4f,
+	                                0x66,0x6d,0x7d,0x07,
+	                                0x7f,0x6f,0x77,0x7c,
+	                                0x39,0x5e,0x79,0x71};
+        
 
         public Component()
         {
@@ -33,8 +60,28 @@ namespace IoT
             _lcdBricklet = new BrickletLCD20x4(DisplayUID, _ipConnection);
             _temperatureBricklet = new BrickletTemperature(TemperatureUID, _ipConnection);
             _humidityBricklet = new BrickletHumidity(HumidityUID, _ipConnection);
+            _linearPoti = new BrickletLinearPoti(LinearPotiUID, _ipConnection);
+            _rgbButton = new BrickletRGBLEDButton(RGBButtonUID, _ipConnection);
+            _rotaryPoti = new BrickletRotaryPoti(RotaryPotiUID, _ipConnection);
+            _segmentDisplay = new BrickletSegmentDisplay4x7(SegmentUID, _ipConnection);
+            _motionDetector = new BrickletMotionDetectorV2(motionDetectorUID, _ipConnection);
+
             //register listeners
             _dualButtonBricklet.StateChangedCallback += DualButtonStateChanged;
+
+            //register callback
+            _linearPoti.PositionCallback += PositionCB;
+            _rotaryPoti.PositionCallback += PositionRCB;
+            _motionDetector.MotionDetectedCallback += MotionDetectedCB;
+            _motionDetector.DetectionCycleEndedCallback += DetectionCycleEndedCB;
+        }
+
+        public void setCallBackPeriod()
+        {
+            _linearPoti.SetPositionCallbackPeriod(50);
+            _rotaryPoti.SetPositionCallbackPeriod(50);
+            _rgbButton.SetColor(RED, GREEN, BLUE);
+            _motionDetector.SetIndicator(255, 255, 255);
         }
 
 
@@ -248,5 +295,76 @@ namespace IoT
         {
             _ipConnection.Connect(HOST, PORT);
         }
+
+        //LinearPoti
+
+        public int getPosition()
+        {
+            return _linearPoti.GetPosition();
+        }
+
+        public void PositionCB(BrickletLinearPoti sender, int position)
+	    {
+		    Console.WriteLine("Position: " + position);
+            _red = (byte)(RED + ((position - 75)*2));
+            _rgbButton.SetColor(_red, _green, _blue);
+            WriteDigits(_red+_green+_blue);
+            
+	    }
+
+        //rotaryPoti
+
+        public int getRPosition()
+        {
+            return _rotaryPoti.GetPosition();
+        }
+
+        public void PositionRCB(BrickletRotaryPoti sender, short position)
+	    {
+		    Console.WriteLine("Position: " + position);
+             _green = (byte)((GREEN + position)/1.5);
+            _rgbButton.SetColor(_red, _green, _blue);
+            WriteDigits(_red+_green+_blue);
+	    }
+
+        //segmentDisplay
+        public void WriteDigits(int value)
+        {
+            var numbers = GetArray(value);
+            byte[] segments= new byte[4];
+            for (int i = 0; i < numbers.Length; i++)
+			{
+                segments[i] = DIGITS[numbers[i]];
+			}
+		    _segmentDisplay.SetSegments(segments, 7, false);
+        }
+
+        byte[] GetArray(int num)
+        {
+            List<byte> list = new List<byte>();
+            if (num == 0)
+	        {
+                list.Add((byte) 0);
+	        }
+            while(num > 0)
+            {
+                list.Add((byte)(num % 10));
+                num = num / 10;
+            }
+            list.Reverse();
+            return list.ToArray();
+        }       
+
+        //motion detector
+        public void MotionDetectedCB(BrickletMotionDetectorV2 sender)
+	    {
+            counter++;
+		    Console.WriteLine($"Motion Detected => count: {counter} \n(next detection possible in ~2 seconds)");
+	    }
+
+        public void DetectionCycleEndedCB(BrickletMotionDetectorV2 sender)
+	    {
+		    Console.WriteLine("Detection Cycle Ended");
+	    }
     }
 }
