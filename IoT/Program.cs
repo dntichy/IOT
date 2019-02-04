@@ -9,18 +9,18 @@ namespace IoT
 {
     class Program
     {
-        static void Main(string[] args)
-        {
-            Component cp = new Component();
-            cp.Connect();
-            cp.setCallBackPeriod();
-            cp.WriteDigits(0);
+        //static void Main(string[] args)
+        //{
+            //Component cp = new Component();
+            //cp.Connect();
+            //cp.SetCallBackPeriod();
+            //cp.WriteDigits(0);
 
-            Console.WriteLine("Temperature: " + cp.ReadTemperature() / 100.0 + " °C");
-            Console.WriteLine("Press enter to exit");
-            Console.ReadLine();
-            cp.Disconnect();
-        }
+            //Console.WriteLine("Temperature: " + cp.ReadTemperature() / 100.0 + " °C");
+            //Console.WriteLine("Press enter to exit");
+            //Console.ReadLine();
+            //cp.Disconnect();
+        //}
 
        
     }

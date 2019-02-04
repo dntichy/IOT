@@ -14,9 +14,9 @@ using Tinkerforge;
 
 namespace IoT
 {
-    internal class Component
+    public class Component
     {
-        static HttpClient client = new HttpClient();
+        public HttpClient client;
         int Clickcount = 0;
 
 
@@ -46,7 +46,7 @@ namespace IoT
         private const string motionDetectorUID = "EkJ";
         private const string multiTouchUID = "zBf";
 
-        //setup variables
+//        setup variables
         private byte _red = 150;
         private byte _green = 150;
         private byte _blue = 0;
@@ -65,6 +65,8 @@ namespace IoT
 
         public Component()
         {
+
+            client = new HttpClient();
             // Create connection object
             _ipConnection = new IPConnection();
 
@@ -84,14 +86,14 @@ namespace IoT
             _dualButtonBricklet.StateChangedCallback += DualButtonStateChanged;
 
             //register callback
-            _linearPoti.PositionCallback += PositionCB;
+            _linearPoti.PositionCallback += PositionCb;
             _rotaryPoti.PositionCallback += PositionRCB;
             _motionDetector.MotionDetectedCallback += MotionDetectedCB;
             _motionDetector.DetectionCycleEndedCallback += DetectionCycleEndedCB;
             _multiTouch.TouchStateCallback += TouchStateCB;
         }
 
-        public void setCallBackPeriod()
+        public void SetCallBackPeriod()
         {
             _linearPoti.SetPositionCallbackPeriod(50);
             _rotaryPoti.SetPositionCallbackPeriod(50);
@@ -158,7 +160,7 @@ namespace IoT
                     _lcdBricklet.WriteLine(2, 1, Shift(UTF16ToKS0066U(str2), out str2));
                     _lcdBricklet.WriteLine(3, 1, Shift(UTF16ToKS0066U(str3), out str3));
                     System.Threading.Thread.Sleep(300);
-                }
+                } 
             }
         }
 
@@ -351,23 +353,27 @@ namespace IoT
 
         //LinearPoti
 
-        public int getPosition()
+        public int GetPosition()
         {
             return _linearPoti.GetPosition();
         }
 
-        public void PositionCB(BrickletLinearPoti sender, int position)
+        public void PositionCb(BrickletLinearPoti sender, int position)
 	    {
 		    Console.WriteLine("Position: " + position);
             _red = (byte)(RED + ((position - 75)*2));
             _rgbButton.SetColor(_red, _green, _blue);
             WriteDigits(_red+_green+_blue);
-            
-	    }
+
+
+            byte vIn = 0;
+            int vOut = Convert.ToInt32(vIn);
+            Console.WriteLine();
+        }
 
         //rotaryPoti
 
-        public int getRPosition()
+        public int GetRPosition()
         {
             return _rotaryPoti.GetPosition();
         }

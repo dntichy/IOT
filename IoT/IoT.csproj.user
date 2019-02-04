@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <StartArguments>wss://academic-educatorsextension.portal.ptc.io:443/Thingworx/WS 51da8847-9985-4f66-8b4c-a25a610572b0 1000</StartArguments>
+  </PropertyGroup>
+</Project>
