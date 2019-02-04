@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using Tinkerforge;
 
 namespace IoT
@@ -19,6 +21,7 @@ namespace IoT
         private BrickletRGBLEDButton _rgbButton;
         private BrickletSegmentDisplay4x7 _segmentDisplay;
         private BrickletMotionDetectorV2 _motionDetector;
+        private BrickletMultiTouch _multiTouch;
 
         //TODO create configurable file for this.
         private static string HOST = "localhost";
@@ -32,6 +35,7 @@ namespace IoT
         private const string RotaryPotiUID = "y6z";
         private const string SegmentUID = "wKt";
         private const string motionDetectorUID = "EkJ";
+        private const string multiTouchUID = "zBf";
 
         //setup variables
         private byte _red = 150;
@@ -65,6 +69,7 @@ namespace IoT
             _rotaryPoti = new BrickletRotaryPoti(RotaryPotiUID, _ipConnection);
             _segmentDisplay = new BrickletSegmentDisplay4x7(SegmentUID, _ipConnection);
             _motionDetector = new BrickletMotionDetectorV2(motionDetectorUID, _ipConnection);
+            _multiTouch = new BrickletMultiTouch(multiTouchUID, _ipConnection);
 
             //register listeners
             _dualButtonBricklet.StateChangedCallback += DualButtonStateChanged;
@@ -74,6 +79,7 @@ namespace IoT
             _rotaryPoti.PositionCallback += PositionRCB;
             _motionDetector.MotionDetectedCallback += MotionDetectedCB;
             _motionDetector.DetectionCycleEndedCallback += DetectionCycleEndedCB;
+            _multiTouch.TouchStateCallback += TouchStateCB;
         }
 
         public void setCallBackPeriod()
@@ -366,5 +372,76 @@ namespace IoT
 	    {
 		    Console.WriteLine("Detection Cycle Ended");
 	    }
+
+        //multi touch
+        public void TouchStateCB(BrickletMultiTouch sender, int state)
+	    {
+            Console.WriteLine(_multiTouch.GetTouchState());
+            int key = 0;
+		string str = "";
+
+		if((state & (1 << 12)) == (1 << 12)) {
+			str += "In proximity, ";
+		}
+
+		if((state & 0xfff) == 0) {
+			str += "No electrodes touched";
+		} else {
+			str += "Electrodes ";
+			for(int i = 0; i < 12; i++) {
+				if((state & (1 << i)) == (1 << i)) {
+					str += i + " ";
+                        key = i;
+				}
+			}
+
+            switch(key)
+            {
+                    case 0:
+                        while (_multiTouch.GetTouchState() == 4097)
+                        {
+                            SendKeys.SendWait("{DOWN}");
+                        }
+                        break;
+                    case 1:
+                        while (_multiTouch.GetTouchState() == 4098)
+                        {
+                            SendKeys.SendWait("{LEFT}");
+                        }
+                        break;
+                    case 2:
+                        while (_multiTouch.GetTouchState() == 4100)
+                        {
+                            SendKeys.SendWait("{RIGHT}");
+                        }
+                        break;
+                    case 3:
+                        while (_multiTouch.GetTouchState() == 4104)
+                        {
+                            SendKeys.SendWait("{UP}");
+                        }
+                        break;
+                    case 6:
+                        while (_multiTouch.GetTouchState() == 4160)
+                        {
+                            SendKeys.SendWait("{X}");
+                        }
+                        break;
+                    case 7:
+                        while (_multiTouch.GetTouchState() == 4224)
+                        {
+                            SendKeys.SendWait("{Z}");
+                        }
+                        break;
+                    default:
+                        break;
+            }
+
+
+			str += "touched";
+		}
+
+		Console.WriteLine(str);
+	}
     }
 }
