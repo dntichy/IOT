@@ -13,11 +13,15 @@ namespace IoT
         {
             Component cp = new Component();
             cp.Connect();
+            cp.setCallBackPeriod();
+            cp.WriteDigits(0);
 
             Console.WriteLine("Temperature: " + cp.ReadTemperature() / 100.0 + " °C");
             Console.WriteLine("Press enter to exit");
             Console.ReadLine();
             cp.Disconnect();
         }
+
+       
     }
 }
