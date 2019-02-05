@@ -10,8 +10,11 @@ using com.thingworx.communications.common;
 // for a detailed explanation of this example's operation 
 namespace IoT
 {
+
+    
     public class SteamSensorClient : ConnectedThingClient
     {
+     
         private static readonly TraceSource Logger = LoggerFactory.getLogger(typeof(SteamSensorClient));
 
         public SteamSensorClient(ClientConfigurator config) 
@@ -41,19 +44,7 @@ namespace IoT
 
         private static void Main(string[] args)
         {
-            
-
-            Component cp = new Component();
-            cp.Connect();
-            cp.SetCallBackPeriod();
-            cp.WriteDigits(0);
-
-
-
-
-
-
-
+                     
             if (args.Length < 3) 
             {
 			    Console.WriteLine("Required arguments not found!");

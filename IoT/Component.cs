@@ -1,14 +1,12 @@
 ﻿using System;
 using System.Net.Http;
 using Newtonsoft.Json;
-
 using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
-
 using Tinkerforge;
 
 
@@ -18,6 +16,8 @@ namespace IoT
     {
         public HttpClient client;
         int Clickcount = 0;
+        int MoveCount = 0;
+        private bool ButtonActive = false;
 
 
         private IPConnection _ipConnection;
@@ -26,10 +26,10 @@ namespace IoT
         private BrickletTemperature _temperatureBricklet;
         private BrickletHumidity _humidityBricklet;
         private BrickletLinearPoti _linearPoti;
-        private BrickletRotaryPoti _rotaryPoti;
+        public BrickletRotaryPoti _rotaryPoti { get; }
         private BrickletRGBLEDButton _rgbButton;
         private BrickletSegmentDisplay4x7 _segmentDisplay;
-        private BrickletMotionDetectorV2 _motionDetector;
+        public BrickletMotionDetectorV2 _motionDetector { get; }
         private BrickletMultiTouch _multiTouch;
 
         //TODO create configurable file for this.
@@ -57,15 +57,17 @@ namespace IoT
         private const byte GREEN = 150;
         private const byte BLUE = 0;
 
-        private static byte[] DIGITS = {0x3f,0x06,0x5b,0x4f,
-	                                0x66,0x6d,0x7d,0x07,
-	                                0x7f,0x6f,0x77,0x7c,
-	                                0x39,0x5e,0x79,0x71};
-        
+        private static byte[] DIGITS =
+        {
+            0x3f, 0x06, 0x5b, 0x4f,
+            0x66, 0x6d, 0x7d, 0x07,
+            0x7f, 0x6f, 0x77, 0x7c,
+            0x39, 0x5e, 0x79, 0x71
+        };
+
 
         public Component()
         {
-
             client = new HttpClient();
             // Create connection object
             _ipConnection = new IPConnection();
@@ -107,6 +109,7 @@ namespace IoT
             _lcdBricklet.BacklightOn();
             if (buttonL == BrickletDualButton.BUTTON_STATE_PRESSED)
             {
+                ButtonActive = false;
                 GetData();
             }
             else if (buttonL == BrickletDualButton.BUTTON_STATE_RELEASED)
@@ -116,15 +119,18 @@ namespace IoT
 
             if (buttonR == BrickletDualButton.BUTTON_STATE_PRESSED)
             {
+                ButtonActive = true;
                 Clickcount = 0;
+                MoveCount = 0;
                 Console.WriteLine("Right Button: Pressed");
 
-                _lcdBricklet.ClearDisplay();
                 _lcdBricklet.ClearDisplay();
                 _lcdBricklet.WriteLine(0, 0,
                     "Temperature: " + Convert.ToString(ReadTemperature() / 100.0) + UTF16ToKS0066U("°C"));
                 _lcdBricklet.WriteLine(1, 0,
                     "Humidity: " + Convert.ToString(ReadHumidity() / 100.0) + UTF16ToKS0066U("%"));
+
+                _lcdBricklet.WriteLine(3, 0, "Move count: " + MoveCount);
             }
             else if (buttonR == BrickletDualButton.BUTTON_STATE_RELEASED)
             {
@@ -142,7 +148,7 @@ namespace IoT
             if (Clickcount == 1)
             {
                 HttpResponseMessage response = await client.GetAsync(
-                    "https://newsapi.org/v2/everything?q=bitcoin&from=2019-01-04&sortBy=publishedAt&language=en&apiKey=4870ddca698c4c3cb6d3cbbfa2d183fe");
+                    "https://newsapi.org/v2/everything?q=bitcoin&from=2019-01-05&sortBy=publishedAt&language=en&apiKey=4870ddca698c4c3cb6d3cbbfa2d183fe");
                 String json = await response.Content.ReadAsStringAsync();
                 RootObject bsObj = JsonConvert.DeserializeObject<RootObject>(json);
 
@@ -160,16 +166,17 @@ namespace IoT
                     _lcdBricklet.WriteLine(2, 1, Shift(UTF16ToKS0066U(str2), out str2));
                     _lcdBricklet.WriteLine(3, 1, Shift(UTF16ToKS0066U(str3), out str3));
                     System.Threading.Thread.Sleep(300);
-                } 
+                }
             }
         }
+
 
         public string Shift(string str, out string st)
         {
             st = str.Substring(1) + str[0];
             return str;
         }
-            
+
         public short ReadTemperature()
         {
             return _temperatureBricklet.GetTemperature();
@@ -359,11 +366,11 @@ namespace IoT
         }
 
         public void PositionCb(BrickletLinearPoti sender, int position)
-	    {
-		    Console.WriteLine("Position: " + position);
-            _red = (byte)(RED + ((position - 75)*2));
+        {
+            Console.WriteLine("Position: " + position);
+            _red = (byte) (RED + ((position - 75) * 2));
             _rgbButton.SetColor(_red, _green, _blue);
-            WriteDigits(_red+_green+_blue);
+            WriteDigits(_red + _green + _blue);
 
 
             byte vIn = 0;
@@ -379,122 +386,150 @@ namespace IoT
         }
 
         public void PositionRCB(BrickletRotaryPoti sender, short position)
-	    {
-		    Console.WriteLine("Position: " + position);
-             _green = (byte)((GREEN + position)/1.5);
+        {
+            Console.WriteLine("Position: " + position);
+            _green = (byte) ((GREEN + position) / 1.5);
             _rgbButton.SetColor(_red, _green, _blue);
-            WriteDigits(_red+_green+_blue);
-	    }
+            WriteDigits(_red + _green + _blue);
+        }
 
         //segmentDisplay
         public void WriteDigits(int value)
         {
             var numbers = GetArray(value);
-            byte[] segments= new byte[4];
+            byte[] segments = new byte[4];
             for (int i = 0; i < numbers.Length; i++)
-			{
+            {
                 segments[i] = DIGITS[numbers[i]];
-			}
-		    _segmentDisplay.SetSegments(segments, 7, false);
+            }
+
+            _segmentDisplay.SetSegments(segments, 7, false);
         }
 
         byte[] GetArray(int num)
         {
             List<byte> list = new List<byte>();
             if (num == 0)
-	        {
-                list.Add((byte) 0);
-	        }
-            while(num > 0)
             {
-                list.Add((byte)(num % 10));
+                list.Add((byte) 0);
+            }
+
+            while (num > 0)
+            {
+                list.Add((byte) (num % 10));
                 num = num / 10;
             }
+
             list.Reverse();
             return list.ToArray();
-        }       
+        }
 
         //motion detector
         public void MotionDetectedCB(BrickletMotionDetectorV2 sender)
-	    {
+        {
             counter++;
-		    Console.WriteLine($"Motion Detected => count: {counter} \n(next detection possible in ~2 seconds)");
-	    }
+            Console.WriteLine($"Motion Detected => count: {counter} \n(next detection possible in ~2 seconds)");
+
+            if (ButtonActive == true)
+            {
+
+                MoveCount++;
+                _lcdBricklet.ClearDisplay();
+                _lcdBricklet.WriteLine(0, 0,
+                    "Temperature: " + Convert.ToString(ReadTemperature() / 100.0) + UTF16ToKS0066U("°C"));
+                _lcdBricklet.WriteLine(1, 0,
+                    "Humidity: " + Convert.ToString(ReadHumidity() / 100.0) + UTF16ToKS0066U("%"));
+
+                _lcdBricklet.WriteLine(3, 0, "Move count: " + MoveCount);
+            }
+        }
 
         public void DetectionCycleEndedCB(BrickletMotionDetectorV2 sender)
-	    {
-		    Console.WriteLine("Detection Cycle Ended");
-	    }
+        {
+            Console.WriteLine("Detection Cycle Ended");
+        }
 
         //multi touch
         public void TouchStateCB(BrickletMultiTouch sender, int state)
-	    {
+        {
             Console.WriteLine(_multiTouch.GetTouchState());
             int key = 0;
-		string str = "";
+            string str = "";
 
-		if((state & (1 << 12)) == (1 << 12)) {
-			str += "In proximity, ";
-		}
-
-		if((state & 0xfff) == 0) {
-			str += "No electrodes touched";
-		} else {
-			str += "Electrodes ";
-			for(int i = 0; i < 12; i++) {
-				if((state & (1 << i)) == (1 << i)) {
-					str += i + " ";
-                        key = i;
-				}
-			}
-
-            switch(key)
+            if ((state & (1 << 12)) == (1 << 12))
             {
+                str += "In proximity, ";
+            }
+
+            if ((state & 0xfff) == 0)
+            {
+                str += "No electrodes touched";
+            }
+            else
+            {
+                str += "Electrodes ";
+                for (int i = 0; i < 12; i++)
+                {
+                    if ((state & (1 << i)) == (1 << i))
+                    {
+                        str += i + " ";
+                        key = i;
+                    }
+                }
+
+                switch (key)
+                {
                     case 0:
                         while (_multiTouch.GetTouchState() == 4097)
                         {
                             SendKeys.SendWait("{DOWN}");
                         }
+
                         break;
                     case 1:
                         while (_multiTouch.GetTouchState() == 4098)
                         {
                             SendKeys.SendWait("{LEFT}");
                         }
+
                         break;
                     case 2:
                         while (_multiTouch.GetTouchState() == 4100)
                         {
                             SendKeys.SendWait("{RIGHT}");
                         }
+
                         break;
                     case 3:
                         while (_multiTouch.GetTouchState() == 4104)
                         {
                             SendKeys.SendWait("{UP}");
                         }
+
                         break;
                     case 6:
                         while (_multiTouch.GetTouchState() == 4160)
                         {
                             SendKeys.SendWait("{X}");
                         }
+
                         break;
                     case 7:
                         while (_multiTouch.GetTouchState() == 4224)
                         {
                             SendKeys.SendWait("{Z}");
                         }
+
                         break;
                     default:
                         break;
+                }
+
+
+                str += "touched";
             }
 
-
-			str += "touched";
-		}
-
-		Console.WriteLine(str);
-	}
+            Console.WriteLine(str);
+        }
     }
 }

@@ -12,6 +12,7 @@ using com.thingworx.types;
 using com.thingworx.types.collections;
 using com.thingworx.types.constants;
 using com.thingworx.types.primitives;
+using Tinkerforge;
 
 // Refer to the "Steam Sensor Example" section of the documentation
 // for a detailed explanation of this example's operation 
@@ -20,6 +21,8 @@ namespace IoT
     // Property Definitions
     [ThingworxPropertyDefinition(name = "Temperature", description = "Current Temperature", baseType = "NUMBER", category = "Status", aspects = new string[] { "isReadOnly:true" })]
     [ThingworxPropertyDefinition(name = "Humidity", description = "Current Humidity", baseType = "NUMBER", category = "Status", aspects = new string[] { "isReadOnly:true" })]
+    [ThingworxPropertyDefinition(name = "Movement", description = "Current Movement", baseType = "NUMBER", category = "Status", aspects = new string[] { "isReadOnly:true" })]
+    [ThingworxPropertyDefinition(name = "Potenciometer", description = "Current Potenciometer", baseType = "NUMBER", category = "Status", aspects = new string[] { "isReadOnly:true" })]
     [ThingworxPropertyDefinition(name = "Timestamp", description = "Current Timestamp", baseType = "DATETIME", category = "Status", aspects = new string[] { "isReadOnly:true" })]
     [ThingworxPropertyDefinition(name = "FaultStatus", description = "Fault status", baseType = "BOOLEAN", category = "Faults", aspects = new string[] { "isReadOnly:true" })]
     [ThingworxPropertyDefinition(name = "InletValve", description = "Inlet valve state", baseType = "BOOLEAN", category = "Status", aspects = new string[] { "isReadOnly:true" })]
@@ -41,15 +44,29 @@ namespace IoT
 	    private static string INLET_VALVE_FIELD = "CurrentInletValve";
 	    private static string TEMPERATURE_LIMIT_FIELD = "RatedTemperatureLimit";
 	    private static string TOTAL_FLOW_FIELD = "TotalFlowAmount";
-
+        private Component cp;
         private double _totalFlow = 0.0;
         // Lock and bool field used to keep the shutdown logic from occuring multiple times before the actual shutdown
         private object _shutdownLock = new object();
         private bool _shuttingDown = false;
+        
 
         public SteamThing(string name, string description, string identifier, ConnectedThingClient client)
             : base(name, description, identifier, client)
         {
+
+
+
+             cp = new Component();
+            cp.Connect();
+            cp.SetCallBackPeriod();
+            cp.WriteDigits(0);
+
+            cp._motionDetector.MotionDetectedCallback += this.MotionEmit;
+            cp._rotaryPoti.PositionCallback += this.RotaryEmit;
+
+
+
             // Data Shape definition that is used by the steam sensor fault event
             // The event only has one field, the message
             var faultFields = new FieldDefinitionCollection();
@@ -71,6 +88,20 @@ namespace IoT
             // Populate the thing shape with the properties, services, and events that are annotated in this code
             base.initializeFromAnnotations();
         }
+
+        private void RotaryEmit(BrickletRotaryPoti sender, short position)
+        {
+            _rotaryValue = position;
+
+        }
+
+        private void MotionEmit(BrickletMotionDetectorV2 sender)
+        {
+            _counter++;
+        }
+
+        private int _counter = 0;
+        private int _rotaryValue;
 
         // From the VirtualThing class
         // This method will get called when a connect or reconnect happens
@@ -94,14 +125,16 @@ namespace IoT
         }
 
         // Performs the logic for the steam sensor, occurs every scan cycle
-        public void scanDevice()
+        public async void scanDevice()
         {
             var random = new Random();
 
             // Set the Temperature property value in the range of 400-440
-            var temperature = 20 * random.NextDouble();
+            //var temperature = 20 * random.NextDouble();
+            var temperature = (cp.ReadTemperature() / 100.0);
             // Set the Pressure property value in the range of 18-23 
-            var humidity = 18 + 5 * random.NextDouble();
+            //var humidity = 18 + 5 * random.NextDouble();
+            var humidity = (cp.ReadHumidity()/ 100.0);
             // Add a random double value from 0.0-1.0 to the total flow
             _totalFlow += random.NextDouble();
             
@@ -117,6 +150,8 @@ namespace IoT
             base.setProperty("Temperature", temperature);
             base.setProperty("Timestamp", DateTime.Now);
             base.setProperty("Humidity", humidity);
+            base.setProperty("Potenciometer", _rotaryValue);
+            base.setProperty("Movement", _counter);
             base.setProperty("TotalFlow", this._totalFlow);
             base.setProperty("InletValve", inletValveStatus);
 
